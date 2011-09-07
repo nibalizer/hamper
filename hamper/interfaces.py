@@ -41,7 +41,7 @@ class Plugin(object):
             cls = self.__getattribute__(name)
             try:
                 if ICommand.implementedBy(cls):
-                    self.commands.append(cls())
+                    self.commands.append(cls(self))
             except (AttributeError, TypeError):
                 pass
 
@@ -80,7 +80,8 @@ class Command(object):
     caseSensitive = False
     onlyDirected = True
 
-    def __init__(self):
+    def __init__(self, plugin):
+        self.plugin = plugin
         if type(self.regex) == str:
             opts = 0 if self.caseSensitive else re.I
             self.regex = re.compile(self.regex, opts)

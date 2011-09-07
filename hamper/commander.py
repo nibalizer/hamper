@@ -4,10 +4,13 @@ from collections import deque
 import traceback
 
 import yaml
+
 from twisted.words.protocols import irc
-from twisted.internet import protocol, reactor
+from twisted.internet import protocol, reactor, defer
+
 import sqlalchemy
 from sqlalchemy import orm
+
 from bravo.plugin import retrieve_plugins
 
 from hamper.interfaces import IPlugin
@@ -15,6 +18,9 @@ from hamper.interfaces import IPlugin
 
 class CommanderProtocol(irc.IRCClient):
     """Interacts with a single server, and delegates to the plugins."""
+
+    def __init__(self, *args, **kwargs):
+        self.claims = []
 
     ##### Properties #####
     @property
@@ -37,8 +43,15 @@ class CommanderProtocol(irc.IRCClient):
         """Called after successfully joining a channel."""
         print "Joined {0}.".format(channel)
 
+    def noticed(self, user, channel, msg):
+        """Called when a notice is received from a channel or user."""
+        self.process_message(user, channel, msg, notice=True)
+
     def privmsg(self, user, channel, msg):
         """Called when a message is received from a channel or user."""
+        self.process_message(user, channel, msg)
+
+    def process_message(self, user, channel, msg, notice=False):
         print channel, user, msg
 
         if not user:
@@ -76,6 +89,7 @@ class CommanderProtocol(irc.IRCClient):
             'channel': channel,
             'directed': directed,
             'pm': pm,
+            'notice': notice,
         }
 
         self.dispatch(comm)
@@ -93,6 +107,14 @@ class CommanderProtocol(irc.IRCClient):
 
     def dispatch(self, comm):
         """Take a comm that has been parsed and dispatch it to plugins."""
+
+        # First check if something has claimed this message.
+        for claim in self.claims:
+            if all(comm[k] == v for k, v in claim['rules'].items()):
+                print 'message claimed.'
+                claim['deferred'].callback(comm)
+                self.claims.remove(claim)
+                return
 
         # Plugins are already sorted by priority
         stop = False
@@ -123,6 +145,12 @@ class CommanderProtocol(irc.IRCClient):
             self.msg(comm['user'], message)
         else:
             self.msg(comm['channel'], message)
+
+    def claim_next(self, **kwargs):
+        print 'Registering a claim.'
+        d = defer.Deferred()
+        self.claims.append({'rules': kwargs, 'deferred': d})
+        return d
 
 
 class CommanderFactory(protocol.ClientFactory):
