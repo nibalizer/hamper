@@ -11,7 +11,7 @@ class Friendly(Plugin):
     """Be polite. When people say hello, response."""
 
     name = 'friendly'
-    priority = 2
+    priority = 1
 
     def setup(self, factory):
         self.greetings = ['hi', 'hello', 'hey', 'sup', 'yo', 'hola']
@@ -30,7 +30,7 @@ class OmgPonies(Plugin):
     """The classics never die."""
 
     name = 'ponies'
-    priority = 3
+    priority = 2
 
     cooldown = 30 #seconds
 
@@ -57,7 +57,6 @@ class BotSnack(Plugin):
     """Reward a good bot."""
 
     name = 'botsnack'
-    priority = 0
 
     def setup(self, factory):
         self.rewards = {
