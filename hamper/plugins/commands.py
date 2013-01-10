@@ -6,6 +6,8 @@ from zope.interface import implements
 
 from hamper.interfaces import Command, ChatCommandPlugin
 
+#Ping imports
+from subprocess import Popen, PIPE
 
 log = logging.getLogger('hamper.plugins')
 
@@ -183,9 +185,50 @@ class Dice(ChatCommandPlugin):
 
             bot.say(com['channel'], output)
 
+class Ping(ChatCommandPlugin):
+    """Test machine for ping and return latency."""
+    name = 'ping'
+
+    class PingCommand(Command):
+        name = 'ping'
+        regex = '^ping\s+(.*)'
+        onlyDirected = False
+
+        short_desc = 'ping a host to detect upness and latency'
+        long_desc = ('Three modes, host is up, host is down, and resolution '
+                     'failed. We will do our best to handle these all '
+                     'intelligently.')
+
+        def command(self, bot, comm, groups):
+            target = ''
+            if comm['target']:
+                target = comm['target'] + ': '
+            arg = groups[0]
+
+
+            pingsub = Popen(['ping', '-w', '1', '-c', '1', arg],
+                  stderr=PIPE,stdout=PIPE,shell=False)
+
+            out,err = pingsub.communicate()
+            if len(err):
+              # unknown host
+              message = "Host %s not in DNS" % arg
+            elif '100% packet loss' in out:
+              # host down
+              message = "Host %s is down" % arg
+            elif '1 received' in out:
+              # host up
+              ms = re.findall(r"time=\d+", out)
+              latency = ms[0].split('=')[1]
+              message = "Host %s is up. Latency %s ms" % (arg, latency)
+
+            bot.reply(comm, message)
+
+
 
 lmgtfy = LetMeGoogleThatForYou()
 rot13 = Rot13()
 sed = Sed()
 quit = Quit()
 dice = Dice()
+ping = Ping()
